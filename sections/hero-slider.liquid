@@ -1,0 +1,333 @@
+{{ 'section-hero-slider.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  #HeroSlider-{{ section.id }} {
+    --hero-height: {{ section.settings.hero_height }}vh;
+    --overlay-opacity: {{ section.settings.image_overlay_opacity | divided_by: 100.0 }};
+  }
+{%- endstyle -%}
+
+<div
+  id="HeroSlider-{{ section.id }}"
+  class="hero-slider{% if settings.animations_reveal_on_scroll %} scroll-trigger animate--fade-in{% endif %}"
+  data-autoplay="{{ section.settings.autoplay }}"
+  data-autoplay-speed="{{ section.settings.autoplay_speed }}"
+>
+  <div class="hero-slider__wrapper">
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'slide' -%}
+          <div 
+            class="hero-slide{% if forloop.first %} hero-slide--active{% endif %}"
+            {{ block.shopify_attributes }}
+            data-slide-index="{{ forloop.index0 }}"
+          >
+            {%- if block.settings.image != blank -%}
+              <div class="hero-slide__media">
+                {{
+                  block.settings.image
+                  | image_url: width: 1920
+                  | image_tag:
+                    class: 'hero-slide__image',
+                    sizes: '100vw',
+                    widths: '375, 550, 750, 1100, 1500, 1780, 2000, 3000, 3840',
+                    fetchpriority: 'high'
+                }}
+                <div class="hero-slide__overlay"></div>
+              </div>
+            {%- endif -%}
+            
+            <div class="hero-slide__content">
+              <div class="hero-slide__content-wrapper page-width">
+                {%- if block.settings.heading != blank -%}
+                  <h2 class="hero-slide__heading {{ block.settings.heading_size }}">
+                    {{ block.settings.heading }}
+                  </h2>
+                {%- endif -%}
+                
+                {%- if block.settings.subheading != blank -%}
+                  <p class="hero-slide__subheading">
+                    {{ block.settings.subheading }}
+                  </p>
+                {%- endif -%}
+                
+                {%- if block.settings.button_label != blank -%}
+                  <div class="hero-slide__button">
+                    <a 
+                      href="{{ block.settings.button_link | default: '#' }}"
+                      class="button button--primary"
+                    >
+                      {{ block.settings.button_label }}
+                    </a>
+                  </div>
+                {%- endif -%}
+              </div>
+            </div>
+          </div>
+      {%- endcase -%}
+    {%- endfor -%}
+    
+    {%- if section.blocks.size > 1 -%}
+      <!-- Navigation Arrows -->
+      <button class="hero-slider__nav hero-slider__nav--prev" aria-label="Previous slide">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <button class="hero-slider__nav hero-slider__nav--next" aria-label="Next slide">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <!-- Pagination Dots -->
+      <div class="hero-slider__pagination">
+        {%- for block in section.blocks -%}
+          <button 
+            class="hero-slider__dot{% if forloop.first %} hero-slider__dot--active{% endif %}"
+            data-slide-to="{{ forloop.index0 }}"
+            aria-label="Go to slide {{ forloop.index }}"
+          ></button>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+  </div>
+  
+  <!-- Wave Bottom -->
+  <div class="hero-slider__wave">
+    <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" fill="currentColor"></path>
+      <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" opacity=".5" fill="currentColor"></path>
+      <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" fill="currentColor"></path>
+    </svg>
+  </div>
+</div>
+
+<script>
+  class HeroSlider extends HTMLElement {
+    constructor() {
+      super();
+      this.currentSlide = 0;
+      this.slides = this.querySelectorAll('.hero-slide');
+      this.totalSlides = this.slides.length;
+      this.dots = this.querySelectorAll('.hero-slider__dot');
+      this.prevBtn = this.querySelector('.hero-slider__nav--prev');
+      this.nextBtn = this.querySelector('.hero-slider__nav--next');
+      this.autoplay = this.dataset.autoplay === 'true';
+      this.autoplaySpeed = parseInt(this.dataset.autoplaySpeed) || 5000;
+      this.autoplayTimer = null;
+      
+      this.init();
+    }
+    
+    init() {
+      if (this.totalSlides <= 1) return;
+      
+      // Event listeners
+      this.prevBtn?.addEventListener('click', () => this.prevSlide());
+      this.nextBtn?.addEventListener('click', () => this.nextSlide());
+      
+      this.dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => this.goToSlide(index));
+      });
+      
+      // Touch events for mobile swipe
+      this.setupTouchEvents();
+      
+      // Autoplay
+      if (this.autoplay) {
+        this.startAutoplay();
+        this.addEventListener('mouseenter', () => this.stopAutoplay());
+        this.addEventListener('mouseleave', () => this.startAutoplay());
+      }
+    }
+    
+    setupTouchEvents() {
+      let startX = 0;
+      let endX = 0;
+      
+      this.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+      });
+      
+      this.addEventListener('touchend', (e) => {
+        endX = e.changedTouches[0].clientX;
+        const diff = startX - endX;
+        
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            this.nextSlide();
+          } else {
+            this.prevSlide();
+          }
+        }
+      });
+    }
+    
+    goToSlide(index) {
+      // Remove active class from current slide and dot
+      this.slides[this.currentSlide].classList.remove('hero-slide--active');
+      this.dots[this.currentSlide]?.classList.remove('hero-slider__dot--active');
+      
+      // Set new current slide
+      this.currentSlide = index;
+      
+      // Add active class to new slide and dot
+      this.slides[this.currentSlide].classList.add('hero-slide--active');
+      this.dots[this.currentSlide]?.classList.add('hero-slider__dot--active');
+    }
+    
+    nextSlide() {
+      const next = (this.currentSlide + 1) % this.totalSlides;
+      this.goToSlide(next);
+    }
+    
+    prevSlide() {
+      const prev = (this.currentSlide - 1 + this.totalSlides) % this.totalSlides;
+      this.goToSlide(prev);
+    }
+    
+    startAutoplay() {
+      if (!this.autoplay) return;
+      this.autoplayTimer = setInterval(() => {
+        this.nextSlide();
+      }, this.autoplaySpeed);
+    }
+    
+    stopAutoplay() {
+      if (this.autoplayTimer) {
+        clearInterval(this.autoplayTimer);
+        this.autoplayTimer = null;
+      }
+    }
+  }
+  
+  customElements.define('hero-slider', HeroSlider);
+  
+  // Initialize slider when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    const slider = document.querySelector('.hero-slider');
+    if (slider && !customElements.get('hero-slider')) {
+      new HeroSlider();
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Hero Slider",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "range",
+      "id": "hero_height",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "vh",
+      "label": "Hero Height",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "image_overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "%",
+      "label": "Image Overlay Opacity",
+      "default": 30
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Auto-play slides",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "autoplay_speed",
+      "min": 2000,
+      "max": 9000,
+      "step": 500,
+      "unit": "ms",
+      "label": "Auto-play speed",
+      "default": 5000
+    }
+  ],
+  "blocks": [
+    {
+      "type": "slide",
+      "name": "Slide",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Background Image"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Because Flawless Is Always In Style."
+        },
+        {
+          "type": "select",
+          "id": "heading_size",
+          "options": [
+            {
+              "value": "h3",
+              "label": "Small"
+            },
+            {
+              "value": "h2",
+              "label": "Medium"
+            },
+            {
+              "value": "h1",
+              "label": "Large"
+            },
+            {
+              "value": "h0",
+              "label": "Extra Large"
+            }
+          ],
+          "default": "h1",
+          "label": "Heading Size"
+        },
+        {
+          "type": "textarea",
+          "id": "subheading",
+          "label": "Subheading"
+        },
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": "Button Label",
+          "default": "View Collection"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": "Button Link"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero Slider",
+      "blocks": [
+        {
+          "type": "slide"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
